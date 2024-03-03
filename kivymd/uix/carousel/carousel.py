@@ -1,6 +1,6 @@
 import os
 
-from kivy.properties import ColorProperty, ListProperty
+from kivy.properties import ColorProperty, ListProperty, BooleanProperty
 from kivy.metrics import dp
 from kivy.lang import Builder
 from kivy.uix.image import AsyncImage
@@ -9,6 +9,7 @@ from kivymd import uix_path
 from kivymd.uix.boxlayout import MDBoxLayout
 from kivymd.uix.behaviors import StencilBehavior
 from kivymd.uix.scrollview import MDScrollView
+from kivymd.uix.carousel.carousel_strategy import MultiBrowseCarouselStrategy
 
 with open(
     os.path.join(uix_path, "carousel", "carousel.kv"), encoding="utf-8"
@@ -25,12 +26,8 @@ class MDCarouselImageItem(AsyncImage, StencilBehavior):
 
 class MDCarousel(MDScrollView):
     images = ListProperty([])
-
-    # Android default sizes
-    small_item_min = dp(40)
-    small_item_max = dp(56)
-    large_item = dp(120)
-
+    is_horizontal = BooleanProperty(True)
+    alignment = "none"
     # Axis
     axis = "x"
 
@@ -51,49 +48,18 @@ class MDCarousel(MDScrollView):
         self._child_layout.size = self.size
         self._child_layout.spacing = dp(8)
         self._child_layout.padding = [dp(16), dp(8)]
+        self._child_layout.is_horizontal = self.is_horizontal
+        self._child_layout.alignment = self.alignment
         self.add_widget(self._child_layout)
 
-    def get_max_items(self):
-        return max(2, 3 + round((self.width - self.small_item_min) / self.large_item))
-
     def init_images(self, images, start_from=0):
-        """Add items to view and set there initial size"""
-        max_items = self.get_max_items()
-        size_hint = "size_hint_{}".format(self.axis)
+        for image in images:
+            self._child_layout.add_widget( MDCarouselImageItem(size_hint_x=None, width=dp(100), source = image["source"]) )
 
-        # clear previous ones
-        self._child_layout.clear_widgets()
-
-        # Add required widgets
-        while len(self._item_widgets) < max_items:
-            self._item_widgets.append(MDCarouselImageItem(**{size_hint: None}))
-        # Remove excess if any
-        while len(self._item_widgets) >= max_items:
-            self._item_widgets.pop()
-
-        distance_covered = 0
-        w_h = "width" if self.axis == "x" else "height"
-        _is_small = False
-        for item, widget in zip(images[start_from:max_items], self._item_widgets):
-            # set props
-            widget.source = item["source"]
-            if widget.parent:
-                self._child_layout.remove_widget(widget)
-
-            # set size
-            distance_left = getattr(self, w_h) - distance_covered
-            if distance_left > self.large_item * 2:
-                setattr(widget, size_hint, None)
-                setattr(widget, w_h, self.large_item)
-                distance_covered += getattr(widget, w_h)
-            elif not _is_small:
-                setattr(widget, size_hint, 1)
-                _is_small = True
-            else:
-                setattr(widget, size_hint, None)
-                setattr(widget, w_h, self.small_item_min)
-
-            self._child_layout.add_widget(widget)
+        clas = MultiBrowseCarouselStrategy().on_first_child_measured_with_margins(
+            self._child_layout, MDCarouselImageItem(size_hint_x=None, width=dp(100))
+        )
+        print(clas)
 
     def on_images(self, instance, images):
         self.init_images(images)
@@ -101,21 +67,12 @@ class MDCarousel(MDScrollView):
     def on_size(self, instance, size):
         self._child_layout.size = self.size
         self.init_images(self.images)
-    
+
     _last_touch_pos = []
+
     def on_touch_down(self, touch):
         self._last_touch_pos = list(touch.pos)
         super().on_touch_down(touch)
 
     def on_touch_move(self, touch):
         super().on_touch_move(touch)
-
-        distance = touch.pos[0] - self._last_touch_pos[0]
-        print(self.scroll_x * self._child_layout.width)
-        for widget in self._child_layout.children[::-1]:
-            if widget.width < self.small_item_max:
-                if self.scroll_x * self._child_layout.width > self.small_item_min:
-                    self._child_layout.remove_widget(widget)
-                break
-            widget.width += distance
-            break

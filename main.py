@@ -1,3 +1,4 @@
+from glob import glob
 from kivy.metrics import dp
 from kivy.uix.boxlayout import BoxLayout
 from kivy.lang import Builder
@@ -34,7 +35,7 @@ class Example(MDApp, CommonApp):
     def on_start(self):
         super().on_start()
         self.root.ids.carousel.images = [
-            {"source":"/home/tdynamos/Documents/time_table.jpeg"},
-        ] * 10
+            {"source":path} for path in glob("/home/tdynamos/Pictures/Screenshots/*")
+        ] 
 
 Example().run()

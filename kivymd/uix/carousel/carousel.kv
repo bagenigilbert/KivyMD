@@ -1,1 +1,19 @@
 <MDCarouselImageItem>:
+
+<MDCarousel>:
+    viewclass:"MDCarouselImageItem"
+    do_scroll_x:self.is_horizontal
+    do_scroll_y:not self.is_horizontal
+    bar_color:[0, 0, 0, 0]
+    bar_inactive_color:[0, 0, 0, 0]
+    effect_cls:"ScrollEffect"
+    MDCarouselContainer:
+        id:_container
+        is_horizontal:root.is_horizontal
+        alignment:root.alignment
+        default_size: [root._variable_item_size, self.height]
+        default_size_hint:[None, 1]
+        size_hint:[None, 1]
+        width:self.minimum_width
+        spacing:dp(8)
+        padding:[dp(16), dp(8)]

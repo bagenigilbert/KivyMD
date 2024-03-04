@@ -1,18 +1,31 @@
 import os
 
-from kivy.properties import ColorProperty, ListProperty, BooleanProperty
-from kivy.metrics import dp
+from kivy.clock import Clock
 from kivy.lang import Builder
+from kivy.metrics import dp
+from kivy.properties import (
+    BooleanProperty,
+    StringProperty,
+    OptionProperty,
+    NumericProperty,
+)
 from kivy.uix.image import AsyncImage
+from kivy.uix.recycleboxlayout import RecycleBoxLayout
+from kivy.uix.recycleview import RecycleView
 
 from kivymd import uix_path
-from kivymd.uix.boxlayout import MDBoxLayout
-from kivymd.uix.behaviors import StencilBehavior
-from kivymd.uix.scrollview import MDScrollView
-from kivymd.uix.carousel.carousel_strategy import MultiBrowseCarouselStrategy
+from kivymd.theming import ThemableBehavior
+from kivymd.uix import MDAdaptiveWidget
+from kivymd.uix.behaviors import (
+    BackgroundColorBehavior,
+    DeclarativeBehavior,
+    StencilBehavior,
+)
+from kivymd.uix.carousel.carousel_strategy import AvaliableStrategies
 
 with open(
-    os.path.join(uix_path, "carousel", "carousel.kv"), encoding="utf-8"
+    os.path.join(uix_path, "carousel", "carousel.kv"),
+    encoding="utf-8",
 ) as kv_file:
     Builder.load_string(kv_file.read())
 
@@ -24,55 +37,82 @@ class MDCarouselImageItem(AsyncImage, StencilBehavior):
         self.radius = [10] * 4
 
 
-class MDCarousel(MDScrollView):
-    images = ListProperty([])
-    is_horizontal = BooleanProperty(True)
-    alignment = "none"
-    # Axis
-    axis = "x"
+class MDCarouselContainer(
+    DeclarativeBehavior,
+    ThemableBehavior,
+    BackgroundColorBehavior,
+    RecycleBoxLayout,
+    MDAdaptiveWidget,
+):
+    pass
 
-    _child_layout = None
-    _item_widgets = []
+
+class MDCarousel(RecycleView):
+    strategy = OptionProperty(
+        "MultiBrowseCarouselStrategy", options=[AvaliableStrategies.avaliable]
+    )
+    is_horizontal = BooleanProperty(True)
+    alignment = StringProperty("default")
+    desired_item_size = NumericProperty(120)
+
+    _strategy = None
+    _container = None
+    _distance_scroll = NumericProperty(0.0)
+    _variable_item_size = dp(50)
 
     def __init__(self, *arg, **kwargs):
         super().__init__(*arg, **kwargs)
+        self.bind(data=self.update_strategy)
+        self.bind(size=self.update_strategy)
+        self.bind(ids=self.set_container)
 
-        self.do_scroll_x = True
-        self.do_scroll_y = False
-        self.bar_color = [0, 0, 0, 0]
-        self.bar_inactive_color = [0, 0, 0, 0]
+    def set_container(self, *args):
+        self._container = self.ids._container
 
-        # Container
-        self._child_layout = MDBoxLayout()
-        self._child_layout.size_hint = [None, None]
-        self._child_layout.size = self.size
-        self._child_layout.spacing = dp(8)
-        self._child_layout.padding = [dp(16), dp(8)]
-        self._child_layout.is_horizontal = self.is_horizontal
-        self._child_layout.alignment = self.alignment
-        self.add_widget(self._child_layout)
+    def fit_count(self, type_item, child_count):
+        suitable_count = getattr(self._strategy, f"{type_item}_count")
+        #if type_item == "large":
+            #if (self.width-dp(32))/getattr(self._strategy, f"{type_item}_size") <= suitable_count:
+            #    suitable_count -= self._strategy.small_count - self._strategy.medium_count -1 
+        return range(suitable_count)
 
-    def init_images(self, images, start_from=0):
-        for image in images:
-            self._child_layout.add_widget( MDCarouselImageItem(size_hint_x=None, width=dp(100), source = image["source"]) )
+    def set_init_size(self, *arg):
+        child_count = len(self._container.children)
+        if child_count <= (
+            self._strategy.small_count
+            + self._strategy.medium_count
+            + self._strategy.large_count
+        ):
+            return
 
-        clas = MultiBrowseCarouselStrategy().on_first_child_measured_with_margins(
-            self._child_layout, MDCarouselImageItem(size_hint_x=None, width=dp(100))
+        print(self.size,self._strategy, len(self._container.children))
+
+        index = 0
+        for type_item in ["large", "medium", "small"]:
+            item_size = getattr(self._strategy, f"{type_item}_size")
+            for _, widget in zip(
+                self.fit_count(type_item, child_count),
+                self._container.children[::-1][index:],
+            ):
+                widget.width = item_size
+                index += 1
+
+    def on__distance_scroll(self, instance, distance):
+        pass
+
+    def update_strategy(self, *args):
+        self._strategy = AvaliableStrategies.get(self.strategy).arrange(
+            self, self.desired_item_size, len(self.data)
         )
-        print(clas)
+        Clock.schedule_once(self.set_init_size)
+        return self._strategy
 
-    def on_images(self, instance, images):
-        self.init_images(images)
-
-    def on_size(self, instance, size):
-        self._child_layout.size = self.size
-        self.init_images(self.images)
-
-    _last_touch_pos = []
+    _last_touch_point = [0, 0]
 
     def on_touch_down(self, touch):
-        self._last_touch_pos = list(touch.pos)
+        self._last_touch_point = list(touch.pos)
         super().on_touch_down(touch)
 
     def on_touch_move(self, touch):
         super().on_touch_move(touch)
+        self._distance_scroll = touch.pos[0] - self._last_touch_point[0]

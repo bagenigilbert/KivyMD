@@ -58,7 +58,7 @@ class MDCarousel(RecycleView):
     _strategy = None
     _container = None
     _distance_scroll = NumericProperty(0.0)
-    _variable_item_size = dp(50)
+    _variable_item_size = dp(50) 
 
     def __init__(self, *arg, **kwargs):
         super().__init__(*arg, **kwargs)
@@ -77,32 +77,34 @@ class MDCarousel(RecycleView):
         return range(suitable_count)
 
     def set_init_size(self, *arg):
+        predicted_size = (self._strategy.large_count*self._strategy.large_size) + (self._strategy.medium_count*self._strategy.medium_size) + (self._strategy.small_count*self._strategy.small_size)
+        
+        print(predicted_size)
+        print(self.size,self._strategy, len(self._container.children))
+
         child_count = len(self._container.children)
-        if child_count <= (
+        if child_count < (
             self._strategy.small_count
             + self._strategy.medium_count
             + self._strategy.large_count
         ):
             return
-
-        print(self.size,self._strategy, len(self._container.children))
-
         index = 0
         for type_item in ["large", "medium", "small"]:
             item_size = getattr(self._strategy, f"{type_item}_size")
-            for _, widget in zip(
-                self.fit_count(type_item, child_count),
-                self._container.children[::-1][index:],
+            for widget_index in (
+                self.fit_count(type_item, child_count)
             ):
+                widget = self._container.children[::-1][index]
                 widget.width = item_size
                 index += 1
-
+        
     def on__distance_scroll(self, instance, distance):
         pass
 
     def update_strategy(self, *args):
         self._strategy = AvaliableStrategies.get(self.strategy).arrange(
-            self, self.desired_item_size, len(self.data)
+            self.width, self.desired_item_size, len(self.data)
         )
         Clock.schedule_once(self.set_init_size)
         return self._strategy

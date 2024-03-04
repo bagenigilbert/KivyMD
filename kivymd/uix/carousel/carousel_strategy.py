@@ -46,8 +46,7 @@ class MultiBrowseCarouselStrategy(CarouselStrategy):
     small_counts = [1]
     medium_counts = [1, 0]
 
-    def arrange(self, carousel: Widget, measured_child_size, item_len):
-        available_space = (carousel.width-dp(40)) if carousel.is_horizontal else carousel.height
+    def arrange(self, available_space, measured_child_size, item_len):
         small_child_size_min = self.small_size_min
         small_child_size_max = max(self.small_size_max, small_child_size_min)
         target_large_child_size = min(measured_child_size, available_space)
@@ -62,7 +61,7 @@ class MultiBrowseCarouselStrategy(CarouselStrategy):
             small_counts = [0]
         medium_counts = self.medium_counts
 
-        if carousel.alignment == "center":
+        if False:#carousel.alignment == "center":
             small_counts = self.double_counts(small_counts)
             medium_counts = self.double_counts(medium_counts)
 

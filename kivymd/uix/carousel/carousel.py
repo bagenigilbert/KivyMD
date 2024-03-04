@@ -34,7 +34,7 @@ class MDCarouselImageItem(AsyncImage, StencilBehavior):
     def __init__(self, *arg, **kwargs):
         super().__init__(*arg, **kwargs)
         self.fit_mode = "cover"
-        self.radius = [10] * 4
+        self.radius = [30] * 4
 
 
 class MDCarouselContainer(
@@ -53,12 +53,11 @@ class MDCarousel(RecycleView):
     )
     is_horizontal = BooleanProperty(True)
     alignment = StringProperty("default")
-    desired_item_size = NumericProperty(120)
+    desired_item_size = NumericProperty(140)
 
     _strategy = None
     _container = None
-    _distance_scroll = NumericProperty(0.0)
-    _variable_item_size = dp(50) 
+    _variable_item_size = dp(50)
 
     def __init__(self, *arg, **kwargs):
         super().__init__(*arg, **kwargs)
@@ -69,42 +68,53 @@ class MDCarousel(RecycleView):
     def set_container(self, *args):
         self._container = self.ids._container
 
-    def fit_count(self, type_item, child_count):
-        suitable_count = getattr(self._strategy, f"{type_item}_count")
-        #if type_item == "large":
-            #if (self.width-dp(32))/getattr(self._strategy, f"{type_item}_size") <= suitable_count:
-            #    suitable_count -= self._strategy.small_count - self._strategy.medium_count -1 
-        return range(suitable_count)
-
     def set_init_size(self, *arg):
-        predicted_size = (self._strategy.large_count*self._strategy.large_size) + (self._strategy.medium_count*self._strategy.medium_size) + (self._strategy.small_count*self._strategy.small_size)
-        
-        print(predicted_size)
-        print(self.size,self._strategy, len(self._container.children))
-
-        child_count = len(self._container.children)
-        if child_count < (
+        if len(self._container.children) < (
             self._strategy.small_count
             + self._strategy.medium_count
             + self._strategy.large_count
         ):
+            # Reset the size and then retry
+            for widget in self._container.children:
+                widget.width = dp(40)
+            Clock.schedule_once(self.set_init_size)
             return
-        index = 0
+
+        # For debugging only!
+        # assert round(self.width) == round(
+        #     (self._strategy.large_count * self._strategy.large_size)
+        #     + (self._strategy.medium_count * self._strategy.medium_size)
+        #     + (self._strategy.small_count * self._strategy.small_size)
+        # )
+
+        _index = 0
         for type_item in ["large", "medium", "small"]:
-            item_size = getattr(self._strategy, f"{type_item}_size")
-            for widget_index in (
-                self.fit_count(type_item, child_count)
+            for _ in range(
+                getattr(self._strategy, "{}_count".format(type_item))
             ):
-                widget = self._container.children[::-1][index]
-                widget.width = item_size
-                index += 1
-        
-    def on__distance_scroll(self, instance, distance):
-        pass
+                widget = self._container.children[::-1][_index]
+                widget.width = getattr(
+                    self._strategy, "{}_size".format(type_item)
+                ) - dp(8)
+                _index += 1
+    
+    state_ = "no"
+    def cover_distance_scroll(self, touch):
+        distance = touch.pos[0] - self._last_touch_point[0]
+        if self.state_ == "break":
+            return True
+
+        for index, child in enumerate(self._container.children[::-1]):
+            if child.width >= self._strategy.small_size:
+                child.width += distance
+                break
+            else:
+                self.state_ = "break"
+        return False
 
     def update_strategy(self, *args):
         self._strategy = AvaliableStrategies.get(self.strategy).arrange(
-            self.width, self.desired_item_size, len(self.data)
+            self.alignment, self.width, self.desired_item_size, len(self.data)
         )
         Clock.schedule_once(self.set_init_size)
         return self._strategy
@@ -117,4 +127,4 @@ class MDCarousel(RecycleView):
 
     def on_touch_move(self, touch):
         super().on_touch_move(touch)
-        self._distance_scroll = touch.pos[0] - self._last_touch_point[0]
+        self.cover_distance_scroll(touch)

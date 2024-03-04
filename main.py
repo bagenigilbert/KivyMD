@@ -11,6 +11,7 @@ MDScreen:
     md_bg_color: app.theme_cls.backgroundColor
     BoxLayout:
         orientation:"vertical"
+        padding:[dp(16),0]
         MDCarousel:
             id:carousel
             size_hint_y:None

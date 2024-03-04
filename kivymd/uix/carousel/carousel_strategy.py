@@ -7,8 +7,8 @@ from kivymd.uix.carousel.arrangement import Arrangement
 
 
 class CarouselStrategy:
-    small_size_min = dp(40)
-    small_size_max = dp(56)
+    small_size_min = dp(40) + dp(8) # dp(8) -> spacing
+    small_size_max = dp(56) + dp(8)
 
     def on_first_child_measured_with_margins(carousel: Widget, child: Widget):
         pass
@@ -20,9 +20,9 @@ class CarouselStrategy:
 
     @staticmethod
     def double_counts(count: list):
-        doubled_count = list()
-        for i in range(len(count)):
-            doubled_count[i] = count[i] * 2
+        doubled_count = []
+        for i in count:
+            doubled_count.append(i*2) 
         return doubled_count
 
     @staticmethod
@@ -46,7 +46,8 @@ class MultiBrowseCarouselStrategy(CarouselStrategy):
     small_counts = [1]
     medium_counts = [1, 0]
 
-    def arrange(self, available_space, measured_child_size, item_len):
+    def arrange(self, alignment, available_space, measured_child_size, item_len):
+        measured_child_size += dp(8) # dp(8) -> spacing
         small_child_size_min = self.small_size_min
         small_child_size_max = max(self.small_size_max, small_child_size_min)
         target_large_child_size = min(measured_child_size, available_space)
@@ -61,7 +62,7 @@ class MultiBrowseCarouselStrategy(CarouselStrategy):
             small_counts = [0]
         medium_counts = self.medium_counts
 
-        if False:#carousel.alignment == "center":
+        if alignment == "center":
             small_counts = self.double_counts(small_counts)
             medium_counts = self.double_counts(medium_counts)
 
@@ -76,7 +77,7 @@ class MultiBrowseCarouselStrategy(CarouselStrategy):
             large_count_max - i
             for i in range(int(large_count_max - large_count_min + 1))
         ]
-        arrangement = Arrangement.find_lowest_cost_arrangement(
+        return Arrangement.find_lowest_cost_arrangement(
             available_space,
             target_small_child_size,
             small_child_size_min,
@@ -87,46 +88,6 @@ class MultiBrowseCarouselStrategy(CarouselStrategy):
             target_large_child_size,
             large_counts,
         )
-
-        keyline_count = arrangement.get_item_count()
-        if self.ensure_arrangement_fits_item_count(arrangement, item_len):
-            arrangement = Arrangement.find_lowest_cost_arrangement(
-                available_space,
-                target_small_child_size,
-                small_child_size_min,
-                small_child_size_max,
-                [arrangement.small_count],
-                target_medium_child_size,
-                [arrangement.medium_count],
-                target_large_child_size,
-                [arrangement.large_count],
-            )
-        return arrangement
-
-    def ensure_arrangement_fits_item_count(
-        self, arrangement: Arrangement, carousel_item_count: int
-    ):
-        keyline_surplus = arrangement.get_item_count() - carousel_item_count
-        changed = keyline_surplus > 0 and (
-            arrangement.small_count > 0 or arrangement.medium_count > 1
-        )
-        while keyline_surplus > 0:
-            if arrangement.small_count > 0:
-                arrangement.small_count -= 1
-            elif arrangement.medium_count > 1:
-                arrangement.medium_count -= 1
-            keyline_surplus -= 1
-        return changed
-
-    def should_refresh_keyline_state(carousel: Widget, old_item_count: int):
-        return (
-            old_item_count < keyline_count
-            and carousel.get_item_count() >= keyline_count
-        ) or (
-            old_item_count >= keyline_count
-            and carousel.get_item_count() < keyline_count
-        )
-
 
 class AvaliableStrategies:
     avaliable = ["MultiBrowseCarouselStrategy"]

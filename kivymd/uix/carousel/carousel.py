@@ -8,6 +8,7 @@ from kivy.properties import (
     StringProperty,
     OptionProperty,
     NumericProperty,
+    ListProperty
 )
 from kivy.uix.image import AsyncImage
 from kivy.uix.recycleboxlayout import RecycleBoxLayout
@@ -57,8 +58,9 @@ class MDCarousel(RecycleView):
 
     _strategy = None
     _container = None
-    _variable_item_size = dp(50)
-
+    _variable_item_size =  dp(50)
+    _scroll_distance = ListProperty([0,0])
+    
     def __init__(self, *arg, **kwargs):
         super().__init__(*arg, **kwargs)
         self.bind(data=self.update_strategy)
@@ -76,41 +78,38 @@ class MDCarousel(RecycleView):
         ):
             # Reset the size and then retry
             for widget in self._container.children:
-                widget.width = dp(40)
+                widget.width = self.desired_item_size - dp(30)
             Clock.schedule_once(self.set_init_size)
             return
-
-        # For debugging only!
-        # assert round(self.width) == round(
-        #     (self._strategy.large_count * self._strategy.large_size)
-        #     + (self._strategy.medium_count * self._strategy.medium_size)
-        #     + (self._strategy.small_count * self._strategy.small_size)
-        # )
-
-        _index = 0
+        item_index = 0
         for type_item in ["large", "medium", "small"]:
             for _ in range(
                 getattr(self._strategy, "{}_count".format(type_item))
             ):
-                widget = self._container.children[::-1][_index]
+                widget = self._container.children[::-1][item_index]
                 widget.width = getattr(
                     self._strategy, "{}_size".format(type_item)
-                ) - dp(8)
-                _index += 1
+                ) - dp(8) # dp(8) -> spacing
+                item_index += 1
+        self._old_children = self._container.children
     
-    state_ = "no"
-    def cover_distance_scroll(self, touch):
-        distance = touch.pos[0] - self._last_touch_point[0]
-        if self.state_ == "break":
-            return True
+    @staticmethod
+    def clamp(value, min_val=0, max_val=0):
+        return min(max(value, min_val), max_val)
 
-        for index, child in enumerate(self._container.children[::-1]):
-            if child.width >= self._strategy.small_size:
-                child.width += distance
-                break
-            else:
-                self.state_ = "break"
-        return False
+    def on__scroll_distance(self, instance, distance_coord):
+        if instance != self:
+            return
+        distance = distance_coord[0] - self._last_touch_point[0]
+        for child in self._container.children[::-1]:
+            print(distance)
+            child.width = self.clamp(
+                child.width + (distance/2),
+                self._strategy.small_size,
+                self._strategy.large_size,
+            )
+            return
+        return
 
     def update_strategy(self, *args):
         self._strategy = AvaliableStrategies.get(self.strategy).arrange(
@@ -127,4 +126,4 @@ class MDCarousel(RecycleView):
 
     def on_touch_move(self, touch):
         super().on_touch_move(touch)
-        self.cover_distance_scroll(touch)
+        self._scroll_distance = list(touch.pos)

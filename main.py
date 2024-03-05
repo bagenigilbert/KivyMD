@@ -28,6 +28,7 @@ class Example(MDApp, CommonApp):
         super().on_start()
         self.root.ids.carousel.data = [
             {"source":path} for path in glob("/home/tdynamos/Pictures/Screenshots/*")[:20]
+        #    {"source":path} for path in [""] * 20
         ] 
 
 Example().run()

@@ -27,8 +27,8 @@ class Example(MDApp, CommonApp):
     def on_start(self):
         super().on_start()
         self.root.ids.carousel.data = [
-            {"source":path} for path in glob("/home/tdynamos/Pictures/Screenshots/*")[:20]
-        #    {"source":path} for path in [""] * 20
+        #    {"source":path} for path in glob("/home/tdynamos/Pictures/Screenshots/*")[:20]
+           {"source":path} for path in [""] * 20
         ] 
 
 Example().run()

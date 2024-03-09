@@ -2,52 +2,67 @@ import math
 
 from kivy.metrics import dp
 from kivy.uix.widget import Widget
+from kivy.clock import Clock
 
 from kivymd.uix.carousel.arrangement import Arrangement
 
 
 class CarouselStrategy:
-    small_size_min = dp(40) + dp(8) # dp(8) -> spacing
+    small_size_min = dp(40) + dp(8)  # dp(8) -> spacing
     small_size_max = dp(56) + dp(8)
 
-    def on_first_child_measured_with_margins(carousel: Widget, child: Widget):
-        pass
+    _container = None
+    item_len = 0
+    arrangement = None 
 
-    def get_child_mask_percentage(
-        masked_size: float, unmasked_size: float, child_margins: float
-    ):
-        return 1 - ((masked_size - child_margins) / (unmasked_size - child_margins))
+    def __init__(self, item_len, _container):
+        self.item_len = item_len
+        self._container = _container
+
+    def arrange(
+        self,
+        alignment: str,
+        available_space: int,
+        measured_child_size: int,
+        item_len: int,
+    ) -> Arrangement:
+        """Build arrangement based on size"""
+
+    def set_init_size(self, *arg) -> None:
+        """Set size of visible widgets initially"""
+
+    def tranform_widgets(
+        self,
+        touch_distance,
+        scroll,
+    ) -> None:
+        """Shift sizes as per scroll and touch distance"""
 
     @staticmethod
     def double_counts(count: list):
         doubled_count = []
         for i in count:
-            doubled_count.append(i*2) 
+            doubled_count.append(i * 2)
         return doubled_count
 
     @staticmethod
     def clamp(value, min_val=0, max_val=0):
         return min(max(value, min_val), max_val)
 
-    def is_contained(self):
-        return True
-
-    def should_refresh_key_line_state(self, carousel: Widget, old_item_count: int):
-        return False
-
-    def set_small_item_size_min(self, min_small_item_size: float):
-        self.small_size_min = min_small_item_size
-
-    def set_small_item_size_max(self, max_small_item_size: float):
-        self.small_size_max = max_small_item_size
-
 
 class MultiBrowseCarouselStrategy(CarouselStrategy):
     small_counts = [1]
     medium_counts = [1, 0]
 
-    def arrange(self, alignment, available_space, measured_child_size, item_len):
-        measured_child_size += dp(8) # dp(8) -> spacing
+    def arrange(
+        self,
+        alignment: str,
+        available_space: int,
+        measured_child_size: int,
+    ) -> Arrangement:
+        # append default padding
+        measured_child_size += dp(8)
+        
         small_child_size_min = self.small_size_min
         small_child_size_max = max(self.small_size_max, small_child_size_min)
         target_large_child_size = min(measured_child_size, available_space)
@@ -77,7 +92,7 @@ class MultiBrowseCarouselStrategy(CarouselStrategy):
             large_count_max - i
             for i in range(int(large_count_max - large_count_min + 1))
         ]
-        return Arrangement.find_lowest_cost_arrangement(
+        self.arrangement = Arrangement.find_lowest_cost_arrangement(
             available_space,
             target_small_child_size,
             small_child_size_min,
@@ -89,11 +104,42 @@ class MultiBrowseCarouselStrategy(CarouselStrategy):
             large_counts,
         )
 
+    def set_init_size(self, *arg):
+        if len(self._container.children) < (
+            self.arrangement.small_count
+            + self.arrangement.medium_count
+            + self.arrangement.large_count
+        ):
+            # Reset the size and then retry
+            for widget in self._container.children:
+                widget.width = self.arrangement.large_size - dp(30)
+            Clock.schedule_once(self.set_init_size)
+            return
+
+        item_index = 0
+        for type_item in ["large", "medium", "small"]:
+            for _ in range(getattr(self.arrangement, "{}_count".format(type_item))):
+                widget = self._container.children[::-1][item_index]
+                widget.width = getattr(
+                    self.arrangement, "{}_size".format(type_item)
+                ) - dp(8)
+                item_index += 1
+
+    def tranform_widgets(
+        self,
+        touch_distance,
+        scroll,
+    ):
+        print(touch_distance, scroll * self._container.width)
+        touch_distance = touch_distance/10
+        children = self._container.children[::-1]
+        
+
 class AvaliableStrategies:
     avaliable = ["MultiBrowseCarouselStrategy"]
 
     @staticmethod
-    def get(strategy_name):
-        return {"MultiBrowseCarouselStrategy": MultiBrowseCarouselStrategy}[
-            strategy_name
-        ]()
+    def get(strategy_name, item_len, container):
+        return {
+            "MultiBrowseCarouselStrategy": MultiBrowseCarouselStrategy,
+        }[strategy_name](item_len, container)

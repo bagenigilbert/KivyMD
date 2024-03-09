@@ -8,7 +8,7 @@ from kivy.properties import (
     StringProperty,
     OptionProperty,
     NumericProperty,
-    ListProperty
+    ListProperty,
 )
 from kivy.uix.image import AsyncImage
 from kivy.uix.recycleboxlayout import RecycleBoxLayout
@@ -57,65 +57,21 @@ class MDCarousel(RecycleView):
     desired_item_size = NumericProperty(140)
 
     _strategy = None
-    _container = None
-    _variable_item_size =  dp(50)
-    _scroll_distance = ListProperty([0,0])
-    
+    _variable_item_size = dp(50)
+
     def __init__(self, *arg, **kwargs):
         super().__init__(*arg, **kwargs)
         self.bind(data=self.update_strategy)
         self.bind(size=self.update_strategy)
-        self.bind(ids=self.set_container)
-
-    def set_container(self, *args):
-        self._container = self.ids._container
-
-    def set_init_size(self, *arg):
-        if len(self._container.children) < (
-            self._strategy.small_count
-            + self._strategy.medium_count
-            + self._strategy.large_count
-        ):
-            # Reset the size and then retry
-            for widget in self._container.children:
-                widget.width = self.desired_item_size - dp(30)
-            Clock.schedule_once(self.set_init_size)
-            return
-        item_index = 0
-        for type_item in ["large", "medium", "small"]:
-            for _ in range(
-                getattr(self._strategy, "{}_count".format(type_item))
-            ):
-                widget = self._container.children[::-1][item_index]
-                widget.width = getattr(
-                    self._strategy, "{}_size".format(type_item)
-                ) - dp(8) # dp(8) -> spacing
-                item_index += 1
-        self._old_children = self._container.children
-    
-    @staticmethod
-    def clamp(value, min_val=0, max_val=0):
-        return min(max(value, min_val), max_val)
-
-    def on__scroll_distance(self, instance, distance_coord):
-        if instance != self:
-            return
-        distance = distance_coord[0] - self._last_touch_point[0]
-        for child in self._container.children[::-1]:
-            print(distance)
-            child.width = self.clamp(
-                child.width + (distance/2),
-                self._strategy.small_size,
-                self._strategy.large_size,
-            )
-            return
-        return
+        self.bind(strategy=self.update_strategy)
 
     def update_strategy(self, *args):
-        self._strategy = AvaliableStrategies.get(self.strategy).arrange(
-            self.alignment, self.width, self.desired_item_size, len(self.data)
-        )
-        Clock.schedule_once(self.set_init_size)
+        if self._strategy.__class__.__name__ != self.strategy:
+            self._strategy = AvaliableStrategies.get(
+                self.strategy, len(self.data), self.ids._container
+            )
+        self._strategy.arrange(self.alignment, self.width, self.desired_item_size)
+        Clock.schedule_once(self._strategy.set_init_size)
         return self._strategy
 
     _last_touch_point = [0, 0]
@@ -126,4 +82,6 @@ class MDCarousel(RecycleView):
 
     def on_touch_move(self, touch):
         super().on_touch_move(touch)
-        self._scroll_distance = list(touch.pos)
+        self._strategy.tranform_widgets(
+            touch.pos[0] - self._last_touch_point[0], self.scroll_x
+        )

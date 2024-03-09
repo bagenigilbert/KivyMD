@@ -29,10 +29,10 @@ class Arrangement:
 
     def __str__(self):
         return (
-            f"Arrangement [priority={self.priority}, smallCount={self.small_count},"
-            f" smallSize={self.small_size}, mediumCount={self.medium_count},"
-            f" mediumSize={self.medium_size}, largeCount={self.large_count},"
-            f" largeSize={self.large_size}, cost={self.cost}]"
+            f"Arrangement [priority={self.priority}, small_count={self.small_count},"
+            f" small_size={self.small_size}, medium_count={self.medium_count},"
+            f" medium_size={self.medium_size}, large_count={self.large_count},"
+            f" large_size={self.large_size}, cost={self.cost}]"
         )
 
     def get_space(self):
